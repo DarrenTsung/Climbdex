@@ -149,8 +149,8 @@ def get_draw_board_kwargs(board_name, layout_id, size_id, set_ids):
 
 def get_ticked_climbs(board, login_cookie):
     login_info = flask.json.loads(login_cookie)
-    logbook = boardlib.api.aurora.get_logbook(
-        board, login_info["token"], login_info["user_id"]
+    logbook = boardlib.api.aurora.get_ascents(
+        board, login_info["token"]
     )
     ticked_climbs = {}
     normal_tick = 0
@@ -169,10 +169,10 @@ def get_ticked_climbs(board, login_cookie):
 
 
 def get_bids(board, login_cookie):
-    db_path = f"data/{board}/db.sqlite3"
+    db_path = f"data/{board}/db.sqlite"
     login_info = json.loads(login_cookie)
     full_logbook_df = boardlib.api.aurora.logbook_entries(
-        board, token=login_info["token"], user_id=login_info["user_id"], db_path=db_path
+        board, login_info["token"], db_path
     )
 
     if full_logbook_df.empty:
