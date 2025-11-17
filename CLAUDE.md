@@ -10,6 +10,13 @@ The app is a Progressive Web App (PWA) that can be installed on any platform. It
 
 **Development Focus**: This project is being developed specifically for a Kilter homewall (7x10 fullride). Features are built for this board without maintaining compatibility with other boards (Tension, Decoy, etc.).
 
+**Kilter Homewall Hold Sets**: The Kilter homewall uses two complementary hold configurations:
+- **Mainline Pack** (set_id: 26) - 165 holds that are more generous (crimps, edges, pinches, slopers, incut ears, mini-jugs). Fills every t-nut in the standard grid. Slightly easier overall.
+- **Auxiliary Pack** (set_id: 27) - 140 holds that are mostly thinner crimps/pinches and slopey/flat edges. Fills in-between spots in the grid. Slightly harder overall.
+- **Full Ride** - Combination of both Mainline + Auxiliary (305 total holds), creating the densest wall configuration.
+
+The Kilter app can display problems filtered to specific pack(s). Layout ID 8 is "Kilter Board Homewall" and size ID 14 is "7 x 10".
+
 ## Development Commands
 
 ### Initial Setup
