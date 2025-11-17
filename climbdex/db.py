@@ -289,6 +289,17 @@ def get_search_base_sql_and_binds(args):
     elif minHolds:
         sql += " >= $minHolds"
         binds['minHolds'] = int(minHolds)
+
+    # Filter for climbs that use auxiliary holds (set_id 27) - Kilter homewall only
+    uses_auxiliary = args.get("usesAuxiliary")
+    if uses_auxiliary == "1":
+        sql += """ AND EXISTS (
+            SELECT 1 FROM placements p
+            WHERE p.set_id = 27
+            AND p.layout_id = $layout_id
+            AND climbs.frames LIKE '%p' || p.id || 'r%'
+        )"""
+
     return sql, binds
 
 

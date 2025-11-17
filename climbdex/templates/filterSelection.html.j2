@@ -143,6 +143,16 @@
                   <option value="any">Any</option>
                 </select>
               </div>
+              {% if params.layout == '8' %}
+              <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="usesAuxiliary" name="usesAuxiliary" value="1" {% if params.usesAuxiliary == '1' %}checked{% endif %}>
+                <label class="form-check-label" for="usesAuxiliary">
+                  Uses Auxiliary Holds
+                </label>
+                <br>
+                <small class="text-muted">Find climbs that use at least one auxiliary hold</small>
+              </div>
+              {% endif %}
               <div class="input-group mb-3 d-grid gap-2">
                 <button class="btn btn-warning" type="button" id="button-reset-hold-filter">Reset Hold
                   Filter</button>
