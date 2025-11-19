@@ -300,6 +300,19 @@ def get_search_base_sql_and_binds(args):
             AND climbs.frames LIKE '%p' || p.id || 'r%'
         )"""
 
+    # Filter for climbs that use auxiliary holds as hand holds (not foot holds)
+    uses_aux_hand_hold = args.get("usesAuxHandHold")
+    if uses_aux_hand_hold == "1":
+        foot_role_id = layout_feet_placement_roles(args.get("board"), args.get("layout"))
+        sql += """ AND EXISTS (
+            SELECT 1 FROM placements p
+            WHERE p.set_id = 27
+            AND p.layout_id = $layout_id
+            AND climbs.frames LIKE '%p' || p.id || 'r%'
+            AND climbs.frames NOT LIKE '%p' || p.id || 'r' || $foot_role_id || '%'
+        )"""
+        binds["foot_role_id"] = foot_role_id
+
     return sql, binds
 
 
