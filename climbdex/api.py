@@ -1,9 +1,10 @@
 import flask
 from flask_parameter_validation import ValidateParameters, Json, Query
-import boardlib.api.aurora 
+import boardlib.api.aurora
 import logging
 import climbdex.db
 import requests
+from typing import Union
 
 blueprint = flask.Blueprint("api", __name__)
 
@@ -24,6 +25,53 @@ def parameter_error(e):
 
     logging.error(response)
     return response
+
+def validate_search_params():
+    """Validate search endpoint parameters with flexible type conversion."""
+    required_params = {
+        'layout': int,
+        'size': int,
+        'minAscents': int,
+        'minGrade': int,
+        'maxGrade': int,
+        'minRating': float,
+        'gradeAccuracy': float,
+        'sortBy': str,
+        'sortOrder': str,
+        'board': str,
+    }
+
+    errors = []
+    for param, expected_type in required_params.items():
+        value = flask.request.args.get(param)
+        if value is None:
+            errors.append(f"Missing required parameter: {param}")
+            continue
+
+        try:
+            if expected_type in (int, float):
+                # Try to convert to the expected numeric type
+                expected_type(value)
+        except (ValueError, TypeError):
+            errors.append(f"Parameter '{param}' must be convertible to {expected_type.__name__}")
+
+    if errors:
+        code = 400
+        description = (
+            f"Parameters were missing and/or misconfigured: {', '.join(errors)}. "
+            f"If the issue persists, please "
+            f"<a href=\"https://github.com/lemeryfertitta/Climbdex/issues/new?title=ValidationError ({code})\" target='_blank'>report it</a> (code: {code})"
+        )
+        response = {
+            "error": True,
+            "code": code,
+            "name": "ValidationError",
+            "description": description,
+        }
+        logging.error(response)
+        return flask.jsonify(response), code
+
+    return None
 
 @blueprint.errorhandler(Exception)
 def handle_exception(e):
@@ -62,29 +110,17 @@ def sets(board_name, layout_id, size_id):
     )
 
 @blueprint.route("/api/v1/search/count")
-@ValidateParameters(parameter_error)
-def resultsCount(
-    gradeAccuracy: float = Query(),
-    layout: int = Query(),
-    maxGrade: int = Query(),
-    minAscents: int = Query(),
-    minGrade: int = Query(),
-    minRating: float = Query(),
-    size: int = Query(),
-):
+def resultsCount():
+    validation_error = validate_search_params()
+    if validation_error:
+        return validation_error
     return flask.jsonify(climbdex.db.get_search_count(flask.request.args))
 
 @blueprint.route("/api/v1/search")
-@ValidateParameters(parameter_error)
-def search(
-    gradeAccuracy: float = Query(),
-    layout: int = Query(),
-    maxGrade: int = Query(),
-    minAscents: int = Query(),
-    minGrade: int = Query(),
-    minRating: float = Query(),
-    size: int = Query(),
-):
+def search():
+    validation_error = validate_search_params()
+    if validation_error:
+        return validation_error
     return flask.jsonify(climbdex.db.get_search_results(flask.request.args))
 
 @blueprint.route("/api/v1/<board_name>/beta/<uuid>")

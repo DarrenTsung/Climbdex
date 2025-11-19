@@ -28,12 +28,14 @@ python3 -m pip install -r requirements.txt
 
 ### Running the Server
 
-Start the development server:
+Start the development server (requires activated virtual environment):
 ```bash
-gunicorn wsgi:app
+source venv/bin/activate && gunicorn wsgi:app --bind :8888
 ```
 
-The app will be available at `http://localhost:8000` (or the port gunicorn selects).
+The app will be available at `http://localhost:8888`.
+
+**Note**: Gunicorn must be run from within the virtual environment where dependencies are installed.
 
 ### Database Synchronization
 
