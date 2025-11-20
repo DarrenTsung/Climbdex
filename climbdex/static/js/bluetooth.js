@@ -140,10 +140,37 @@ function illuminateClimb(board, bluetoothPacket) {
     });
 }
 
+/**
+ * Generate Bluetooth packet with automatic protocol detection
+ * This is the main entry point for illuminating climbs
+ */
+async function getBluetoothPacketAuto(board, frames, placementPositions, colors) {
+  const capitalizedBoard = board[0].toUpperCase() + board.slice(1);
+
+  try {
+    const device = await requestDevice(capitalizedBoard);
+    const apiLevel = getAPILevelFromName(device.name);
+
+    if (apiLevel >= 3) {
+      return getBluetoothPacket(frames, placementPositions, colors);
+    } else {
+      return getBluetoothPacketV2(frames, placementPositions, colors);
+    }
+  } catch (error) {
+    return getBluetoothPacketV2(frames, placementPositions, colors);
+  }
+}
+
 async function writeCharacteristicSeries(characteristic, messages) {
   let returnValue = null;
-  for (const message of messages) {
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
     returnValue = await characteristic.writeValue(message);
+
+    // Small delay between messages to let board process
+    if (i < messages.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
   }
   return returnValue;
 }
@@ -161,3 +188,104 @@ async function requestDevice(namePrefix) {
   }
   return bluetoothDevice;
 }
+
+// ============================================================================
+// V2 vs V3 PROTOCOL DETECTION
+// ============================================================================
+
+/**
+ * Parse board API level from Bluetooth device name
+ * Format: "BoardName#serial@apiLevel" or "BoardName#serial" (defaults to 2)
+ * Example: "Kilter#abc123@3" = API level 3
+ */
+function getAPILevelFromName(deviceName) {
+  const match = deviceName.match(/@(\d+)/);
+  return match ? parseInt(match[1]) : 2;
+}
+
+/**
+ * V2 Protocol: Scale color based on power consumption
+ * V2 dims all LEDs to stay under 18W total power budget
+ */
+function scaledColorV2(colorValue, scale) {
+  // scaledColor formula from APK: ((int)(scale * colorValue)) / 64
+  return Math.floor((scale * colorValue) / 64);
+}
+
+/**
+ * V2 Protocol Color Encoding with Power Scaling
+ * Used by boards with API level < 3
+ * Encodes position (10 bits) + RGB color into 2 bytes
+ *
+ * IMPORTANT: V2 uses power-scaled colors! For testing, use scale=1.0
+ */
+function encodeColorV2(color, position, scale = 1.0) {
+  // Parse hex color "RRGGBB"
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+
+  // Apply power scaling (V2 specific - dims LEDs to save power)
+  const rScaled = scaledColorV2(r, scale);
+  const gScaled = scaledColorV2(g, scale);
+  const bScaled = scaledColorV2(b, scale);
+
+  // Position split: low 8 bits in byte 1, high 2 bits in byte 2
+  const positionLow = position & 255;
+  const positionHigh = (position & 0x300) >> 8; // Top 2 bits of 10-bit position
+
+  // Byte 2 encoding (from APK line 141):
+  // (bScaled << 2) | (rScaled << 6) | positionHigh | (gScaled << 4)
+  // Reordered: [R R R G G G B B] with position bits in bottom 2 bits
+  const colorByte = (rScaled << 6) | (gScaled << 4) | (bScaled << 2) | positionHigh;
+
+  return [positionLow, colorByte];
+}
+
+/**
+ * Generate V2 protocol packet
+ * Note: For testing, we use scale=1.0 (full brightness)
+ * Real app would calculate scale based on total power consumption
+ */
+function getBluetoothPacketV2(frames, placementPositions, colors, scale = 1.0) {
+  const resultArray = [];
+  let tempArray = [77]; // 'M' - middle packet marker
+
+  frames.split("p").forEach((frame) => {
+    if (frame.length > 0) {
+      const [placement, role] = frame.split("r");
+      const ledPosition = Number(placementPositions[placement]);
+      const roleColor = colors[role];
+
+      if (ledPosition > 1023) {
+        return;
+      }
+
+      const encodedFrame = encodeColorV2(roleColor, ledPosition, scale);
+
+      if (tempArray.length + 2 > MESSAGE_BODY_MAX_LENGTH) {
+        resultArray.push(tempArray);
+        tempArray = [77]; // 'M'
+      }
+      tempArray.push(...encodedFrame);
+    }
+  });
+
+  resultArray.push(tempArray);
+
+  // Set packet type markers
+  if (resultArray.length === 1) {
+    resultArray[0][0] = 80; // 'P' - single packet
+  } else if (resultArray.length > 1) {
+    resultArray[0][0] = 78; // 'N' - first packet
+    resultArray[resultArray.length - 1][0] = 79; // 'O' - last packet
+  }
+
+  const finalResultArray = [];
+  for (const currentArray of resultArray) {
+    finalResultArray.push(...wrapBytes(currentArray));
+  }
+
+  return Uint8Array.from(finalResultArray);
+}
+

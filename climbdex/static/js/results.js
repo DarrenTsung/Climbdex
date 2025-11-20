@@ -108,12 +108,14 @@ function drawClimb(
   betaAnchor.href = `/${board}/beta/${uuid}/`;
 
   document.getElementById("button-illuminate").onclick = function () {
-    const bluetoothPacket = getBluetoothPacket(
+    getBluetoothPacketAuto(
+      board,
       isMirroredMode() ? mirroredFrames : frames,
       placementPositions,
       ledColors
-    );
-    illuminateClimb(board, bluetoothPacket);
+    ).then(bluetoothPacket => {
+      illuminateClimb(board, bluetoothPacket);
+    });
   };
 
   const modalclimbNameHeader = document.getElementById("modal-climb-name");
