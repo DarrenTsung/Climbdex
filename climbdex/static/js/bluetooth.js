@@ -289,3 +289,49 @@ function getBluetoothPacketV2(frames, placementPositions, colors, scale = 1.0) {
   return Uint8Array.from(finalResultArray);
 }
 
+/**
+ * Debug utility to test LED positions by lighting up a chunk of holds
+ *
+ * Usage:
+ *   debugIlluminateAllHolds('kilter', 0)  // Light holds 0-99
+ *   debugIlluminateAllHolds('kilter', 1)  // Light holds 100-199
+ *   debugIlluminateAllHolds('kilter', 2)  // Light holds 200-299
+ *   debugIlluminateAllHolds('kilter', 3)  // Light holds 300-305
+ *
+ * Note: Board firmware doesn't properly accumulate multi-packet V2 messages,
+ * so we chunk into 100-hold sections to stay within single packet limits
+ */
+async function debugIlluminateAllHolds(board, chunk = 0, chunkSize = 100) {
+  const startPos = chunk * chunkSize;
+  const endPos = Math.min(startPos + chunkSize, 305);
+
+  console.log(`\n=== DEBUG: Illuminating holds ${startPos}-${endPos - 1} (chunk ${chunk}) ===`);
+
+  try {
+    const whiteColor = "FFFFFF";
+    let frames = "";
+    const placementPositions = {};
+    const colors = { "1": whiteColor };
+
+    // Build synthetic frames string for the chunk
+    for (let pos = startPos; pos < endPos; pos++) {
+      frames += `p${pos}r1`;
+      placementPositions[pos] = pos;
+    }
+
+    // Use auto-detection to get the correct protocol packet
+    const bluetoothPacket = await getBluetoothPacketAuto(
+      board,
+      frames,
+      placementPositions,
+      colors
+    );
+
+    console.log(`[DEBUG] Sending packet to illuminate ${endPos - startPos} holds...`);
+    illuminateClimb(board, bluetoothPacket);
+
+  } catch (error) {
+    console.error("[DEBUG] Error:", error);
+  }
+}
+
